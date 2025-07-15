@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Todo List DApp</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.min.js"></script>
+  <style>
+    body { font-family: Arial; background: #121212; color: white; padding: 20px; }
+    input, button { margin: 5px; padding: 10px; }
+    .task { margin: 10px 0; }
+    .completed { text-decoration: line-through; color: gray; }
+  </style>
+</head>
+<body>
+  <h2>Decentralized Todo List (Ethereum)</h2>
+  <input id="taskInput" type="text" placeholder="Enter task" />
+  <button onclick="addTask()">Add Task</button>
+  <button onclick="loadTasks()">Load My Tasks</button>
+  <div id="taskList"></div>
+
+<script>
+const contractAddress = "YOUR-DEPLOYED-CONTRACT-ADDRESS"; // Replace after deploying
+const contractABI = [
+  {
+    "inputs": [{"internalType":"string","name":"_content","type":"string"}],
+    "name":"addTask","outputs":[],"stateMutability":"nonpayable","type":"function"
+  },
+  {
+    "inputs":[],"name":"getTasks","outputs":[{"components":[{"internalType":"string","name":"content","type":"string"},{"internalType":"bool","name":"completed","type":"bool"}],"internalType":"struct TodoList.Task[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"
+  },
+  {
+    "inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"completeTask","outputs":[],"stateMutability":"nonpayable","type":"function"
+  },
+  {
+    "inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"deleteTask","outputs":[],"stateMutability":"nonpayable","type":"function"
+  }
+];
+
+let provider, signer, contract;
+
+async function connect() {
+  if (window.ethereum) {
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
+    contract = new ethers.Contract(contractAddress, contractABI, signer);
+  } else {
+    alert("Please install MetaMask.");
+  }
+}
+
+async function addTask() {
+  await connect();
+  const input = document.getElementById("taskInput").value;
+  if (!input) return alert("Please enter a task.");
+  const tx = await contract.addTask(input);
+  await tx.wait();
+  alert("Task added!");
+  loadTasks();
+}
+
+async function loadTasks() {
+  await connect();
+  const tasks = await contract.getTasks();
+  const taskDiv = document.getElementById("taskList");
+  taskDiv.innerHTML = "";
+  tasks.forEach((task, index) => {
+    const div = document.createElement("div");
+    div.className = "task" + (task.completed ? " completed" : "");
+    div.innerHTML = `${index + 1}. ${task.content} ` +
+      (!task.completed ? `<button onclick='markComplete(${index})'>Complete</button>` : "") +
+      ` <button onclick='deleteTask(${index})'>Delete</button>`;
+    taskDiv.appendChild(div);
+  });
+}
+
+async function markComplete(index) {
+  await connect();
+  const tx = await contract.completeTask(index);
+  await tx.wait();
+  loadTasks();
+}
+
+async function deleteTask(index) {
+  await connect();
+  const tx = await contract.deleteTask(index);
+  await tx.wait();
+  loadTasks();
+}
+</script>
+</body>
+</html>
